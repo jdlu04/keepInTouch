@@ -2,77 +2,102 @@
 
 How to get Keep in Touch running locally. There are two pieces:
 
-- **Backend** — a Supabase (PostgreSQL) project. Holds the data and auth.
-- **Frontend** — an Expo (React Native) app you run with Expo Go on your phone.
+- **Backend** — a FastAPI (Python) server. Owns the API, auth, and all logic.
+  It connects to a PostgreSQL database hosted on Supabase.
+- **Frontend** — an Expo (React Native) app you run in the browser or with
+  Expo Go on your phone.
 
-You can set up the backend once and share the project with the team, or each
-person can spin up their own. Both are covered below.
+You can point the whole team at one shared database, or each person can spin up
+their own. Both are covered below.
 
 ---
 
-## Part 1 — Backend (Supabase)
+## Part 1 — Backend (FastAPI + Postgres)
 
-### 1. Create / open the project
+### Prerequisites
 
-Go to [supabase.com](https://supabase.com) → sign in → **New project** (or open
-the shared team project). Pick a name and a database password; wait ~2 minutes
-for it to provision.
+- [Python](https://www.python.org/downloads/) 3.11+
+- A PostgreSQL database. Easiest: a free **Supabase** project used purely as a
+  database (no Supabase API/Auth/RLS). A local Postgres works too.
 
-### 2. Run the schema
+### 1. Get a database connection string
 
-1. In the dashboard, open **SQL Editor** → **New query**.
-2. Copy the entire contents of
-   [`backend/supabase/migrations/0001_init.sql`](../backend/supabase/migrations/0001_init.sql).
-3. Paste it into the editor and click **Run**.
+**Using Supabase (recommended):** go to [supabase.com](https://supabase.com) →
+sign in → open (or create) the project. Then **Project Settings → Database →
+Connection string → URI**, and copy the **Session pooler** URI. It looks like:
 
-This creates four tables — `people`, `interactions`, `reminders`,
-`connections` — with Row-Level Security so each user only sees their own rows.
+```
+postgresql://postgres.abcxyz:YOUR-PASSWORD@aws-0-us-east-1.pooler.supabase.com:5432/postgres
+```
 
-### 3. Turn off email confirmation (for now)
+You'll adapt it for SQLAlchemy in the next step (add the driver + SSL).
 
-So sign-up / login works instantly without a confirmation email:
+> If your project still has the old `people` / `interactions` / … tables from
+> the previous Supabase-SQL setup, drop them first (SQL Editor:
+> `drop schema public cascade; create schema public;`). Alembic will recreate
+> everything.
 
-> **Authentication → Sign In / Providers → Email** → turn **off** *Confirm email* → Save.
+### 2. Install and configure
 
-(Turn it back on later for anything shared or production-like.)
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 
-### 4. Create a test user
+cp .env.example .env
+```
 
-Since the app's login screen isn't built yet, make a user by hand:
+Edit `.env`:
 
-> **Authentication → Users → Add user → Create new user** → enter an email +
-> password → enable *Auto Confirm User*.
+- **`DATABASE_URL`** — your connection string, with the driver prefix and SSL:
+  ```
+  DATABASE_URL=postgresql+psycopg2://postgres.abcxyz:YOUR-PASSWORD@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require
+  ```
+  (Local Postgres: `postgresql+psycopg2://postgres:postgres@localhost:5432/kit`.)
+- **`JWT_SECRET`** — a long random string. Generate one with:
+  ```bash
+  python -c "import secrets; print(secrets.token_hex(32))"
+  ```
 
-### 5. (Optional) Load demo data
+### 3. Create the tables
 
-To get some example contacts/interactions/reminders to query against:
+```bash
+alembic upgrade head
+```
 
-1. **SQL Editor** → **New query**.
-2. Paste [`backend/supabase/seed.sql`](../backend/supabase/seed.sql) → **Run**.
+This creates all five tables — `users`, `people`, `interactions`, `reminders`,
+`connections`. (Later, if you change `app/models.py`, run
+`alembic revision --autogenerate -m "..."` then `alembic upgrade head`.)
 
-It seeds the first user in `auth.users` (the one you just created).
+### 4. Run the server
 
-### 6. Grab your API keys
+```bash
+uvicorn app.main:app --reload
+```
 
-**Settings → API** gives you two values the frontend will eventually need:
+- API base: **http://localhost:8000**
+- Interactive docs (try every endpoint): **http://localhost:8000/docs**
 
-- **Project URL** → `EXPO_PUBLIC_SUPABASE_URL`
-- **anon public** key → `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+Create your first account from the docs page (or curl): `POST /auth/signup` with
+an email + password returns a JWT. Click **Authorize** in `/docs`, paste the
+token, and you can call the protected endpoints.
 
-The `anon` key is safe to use in the client — RLS is what protects the data.
+See [`backend/README.md`](../backend/README.md) for the full endpoint list and
+the strength/reminder logic.
 
 ---
 
 ## Part 2 — Frontend (Expo)
 
 > The frontend is currently a **blank Expo starter** — the team builds the
-> screens from here.
+> screens from here, calling the FastAPI backend over HTTP.
 
 ### Prerequisites
 
 - [Node.js](https://nodejs.org) 20+
 - The **Expo Go** app on your phone (App Store / Play Store), or an
-  iOS Simulator / Android Emulator.
+  iOS Simulator / Android Emulator, or just the browser.
 
 ### Run it
 
@@ -82,35 +107,38 @@ npm install
 npm run start
 ```
 
-Then scan the QR code with Expo Go (iOS: Camera app; Android: the Expo Go
-scanner). You should see the "Keep in Touch — Frontend starts here." screen.
+Press `w` for the browser, or scan the QR code with Expo Go. Other commands:
+`npm run ios`, `npm run android`, `npm run web`.
 
-Other commands: `npm run ios`, `npm run android`, `npm run web`.
+### Connecting to the backend (when you're ready)
 
-### Connecting to Supabase (when you're ready)
-
-When the frontend needs data, install the client and wire up env vars:
-
-```bash
-npm install @supabase/supabase-js @react-native-async-storage/async-storage react-native-url-polyfill
-```
-
-Create `frontend/.env` (it's gitignored — never commit it):
+The app talks to FastAPI over plain HTTP (`fetch`), so nothing Supabase-specific
+is needed. Point it at the API with an env var in `frontend/.env` (gitignored):
 
 ```
-EXPO_PUBLIC_SUPABASE_URL=<your Project URL from step 6>
-EXPO_PUBLIC_SUPABASE_ANON_KEY=<your anon key from step 6>
+EXPO_PUBLIC_API_URL=http://localhost:8000
 ```
 
-Then create a Supabase client and use email/password auth
-(`supabase.auth.signUp` / `supabase.auth.signInWithPassword`). See the
-[Supabase docs](https://supabase.com/docs/reference/javascript/introduction).
+> On a physical phone, `localhost` refers to the phone, not your computer — use
+> your machine's LAN IP (e.g. `http://192.168.1.20:8000`) and make sure the
+> backend is started and reachable on your network. Add that origin to the
+> backend's `CORS_ORIGINS` if you lock CORS down.
+
+Log in by POSTing to `/auth/login`, store the returned `access_token`, and send
+it as `Authorization: Bearer <token>` on every request.
 
 ---
 
 ## Troubleshooting
 
-- **`No user found in auth.users` when running the seed** — do step 4 first.
-- **Expo Go can't connect** — make sure your phone and computer are on the
-  same Wi-Fi network.
+- **`alembic: command not found`** — activate the venv first
+  (`source .venv/bin/activate`).
+- **DB connection / SSL errors with Supabase** — make sure the URL starts with
+  `postgresql+psycopg2://` and ends with `?sslmode=require`.
+- **401 on every request** — you need to send the JWT:
+  `Authorization: Bearer <token>` (in `/docs`, use the **Authorize** button).
+- **CORS errors in the browser** — set `CORS_ORIGINS` in the backend `.env`
+  (use `*` in development).
+- **Expo Go can't reach the API** — phone and computer must be on the same
+  Wi-Fi, and the app must use your computer's LAN IP, not `localhost`.
 - **Wrong Node version** — `node -v` should be 20 or higher.

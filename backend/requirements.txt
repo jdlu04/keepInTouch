@@ -1,0 +1,11 @@
+# Keep in Touch — FastAPI backend dependencies
+fastapi>=0.115
+uvicorn[standard]>=0.30
+SQLAlchemy>=2.0
+alembic>=1.13
+psycopg2-binary>=2.9        # PostgreSQL driver
+pydantic-settings>=2.4      # env-based config
+pydantic[email]>=2.8        # EmailStr validation
+python-multipart>=0.0.9     # OAuth2 form parsing for /auth/login
+bcrypt>=4.1                 # password hashing
+PyJWT>=2.9                  # JWT access tokens
