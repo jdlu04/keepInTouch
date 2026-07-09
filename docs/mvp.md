@@ -131,17 +131,19 @@ We are Computer Science students and recent graduates from **The City College of
 
 | Layer | Technology | Purpose |
 |------|------------|---------|
-| Frontend | React Native (Expo) | Cross-platform mobile application |
-| Backend / API | Supabase (PostgREST + Row-Level Security) | Data API and per-user access, called directly from the app |
-| Database | Supabase (PostgreSQL) | Data storage and relationship management |
-| Authentication | Supabase Auth (email + password) | User authentication |
-| Custom API *(planned)* | FastAPI | Server-side logic (e.g. relationship scoring, jobs) — added later when a real need appears |
+| Frontend | React Native (Expo) | Cross-platform app (web + iOS + Android) |
+| Backend / API | FastAPI (Python) | REST API and **all business logic** — auth, relationship scoring, reminders |
+| Database | PostgreSQL (hosted on Supabase) | Data storage; Supabase is used only as a managed Postgres host |
+| ORM / Migrations | SQLAlchemy + Alembic | Schema defined in Python; versioned migrations |
+| Authentication | FastAPI + JWT (email + password) | Passwords hashed with bcrypt; JWT access tokens issued on login |
 | Version Control | Git & GitHub | Collaboration and source control |
 
-> **On the backend:** for the MVP the app talks to Supabase directly — its
-> auto-generated API and Row-Level Security cover data access and per-user
-> isolation, so no separate server is required yet. **FastAPI is deferred**
-> until we need custom server-side logic; it is not part of the initial setup.
+> **On the backend:** the app talks to a **FastAPI (Python)** server over HTTP.
+> FastAPI owns all business logic and authentication and is the only thing that
+> touches the database. PostgreSQL is hosted on Supabase, but only as a managed
+> database — Supabase's auto-generated API, Row-Level Security, and Auth are
+> **not** used. This keeps the logic in our own Python code and works the same
+> for web and native (both just make HTTP calls to the API).
 
 ---
 

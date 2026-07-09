@@ -11,30 +11,36 @@ Full product spec: [docs/mvp.md](docs/mvp.md).
 ```
 keep-in-touch/
 ├── frontend/      Expo (React Native) app — blank starter, built by the frontend team
-├── backend/       Supabase (PostgreSQL) schema + seed data
+├── backend/       FastAPI (Python) API — auth + all business logic
 ├── docs/          Product spec (mvp.md) and setup guide (setup.md)
 └── README.md
 ```
 
 ## Tech stack
 
-| Layer          | Technology                       |
-|----------------|----------------------------------|
-| Frontend       | React Native (Expo)              |
-| Database       | Supabase (PostgreSQL)            |
-| Authentication | Supabase Auth (email + password) |
+| Layer          | Technology                             |
+|----------------|----------------------------------------|
+| Frontend       | React Native (Expo) — web + iOS + Android |
+| Backend / API  | FastAPI (Python)                       |
+| Database       | PostgreSQL (hosted on Supabase)        |
+| ORM / Migrations | SQLAlchemy + Alembic                 |
+| Authentication | FastAPI + JWT (email + password, bcrypt) |
 
-> The [spec](docs/mvp.md) lists FastAPI as a future backend layer. For now the
-> app talks directly to Supabase, with Row-Level Security enforcing per-user
-> data isolation — there is no separate API server yet.
+> The app calls a FastAPI server over HTTP; FastAPI owns all logic and auth and
+> is the only thing that touches the database. Supabase is used **only** as a
+> managed Postgres host — not its API, Auth, or RLS. Same backend for web and
+> native.
 
 ## Getting started
 
 See **[docs/setup.md](docs/setup.md)** for full instructions. In short:
 
-1. **Backend** — create a Supabase project and run
-   [backend/supabase/migrations/0001_init.sql](backend/supabase/migrations/0001_init.sql).
-2. **Frontend** — `cd frontend && npm install && npm run start`, then open in Expo Go.
+1. **Backend** — `cd backend`, create a venv, `pip install -r requirements.txt`,
+   copy `.env.example` to `.env` (set `DATABASE_URL` + `JWT_SECRET`), then
+   `alembic upgrade head` and `uvicorn app.main:app --reload`. Open
+   http://localhost:8000/docs. See [backend/README.md](backend/README.md).
+2. **Frontend** — `cd frontend && npm install && npm run start`, then open in
+   the browser or Expo Go.
 
 ## Team
 
